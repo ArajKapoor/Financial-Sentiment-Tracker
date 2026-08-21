@@ -2,7 +2,6 @@ import os
 import requests
 import pandas as pd
 import torch
-import yfinance as yf
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, logging
 
@@ -50,36 +49,18 @@ def analyze_sentiment(df: pd.DataFrame) -> pd.DataFrame:
 
 def fetch_stock_price_data(ticker_symbol: str) -> pd.DataFrame:
     """
-    Fetches historical stock prices using yfinance with custom browser headers to prevent throttling.
+    Fetches historical stock prices using Stooq API to avoid Yahoo Finance cloud IP blocks.
     """
     try:
-        session = requests.Session()
-        session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-        })
+        url = f"https://stooq.com/q/d/l/?s={ticker_symbol.lower()}.us&i=d"
+        df = pd.read_csv(url)
         
-        ticker = yf.Ticker(ticker_symbol, session=session)
-        df = ticker.history(period="1mo")
-        
-        if df.empty:
+        if df.empty or "Close" not in df.columns:
             return pd.DataFrame()
             
+        df["Date"] = pd.to_datetime(df["Date"])
+        df = df.sort_values("Date").tail(30)
+        df.set_index("Date", inplace=True)
         return df
-    except Exception as e:
-        print(f"yfinance fetch error for {ticker_symbol}: {e}")
-        return pd.DataFrame()   
-
-def fetch_stock_price_data(ticker_symbol: str) -> pd.DataFrame:
-    """
-    Fetches historical stock prices using yfinance with safety handling for cloud IP blocks.
-    """
-    try:
-        ticker = yf.Ticker(ticker_symbol)
-        df = ticker.history(period="1mo")
-        
-        if df is None or df.empty:
-            return pd.DataFrame()
-            
-        return df
-    except Exception as e:
+    except Exception:
         return pd.DataFrame()
