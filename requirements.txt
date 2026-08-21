@@ -1,0 +1,6 @@
+feedparser
+transformers
+torch
+pandas
+streamlit
+plotly
