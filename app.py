@@ -3,12 +3,13 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Suppress Hugging Face warnings
+# Suppress Hugging Face warnings at application startup
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 
 from src.scraper import fetch_rss_news
 from src.analyzer import analyze_sentiment, fetch_stock_price_data
 
+# Page Setup
 st.set_page_config(
     page_title="Financial Sentiment & Market Tracker",
     page_icon="📈",
@@ -16,19 +17,20 @@ st.set_page_config(
 )
 
 st.title("📈 Real-Time Financial Sentiment & Market Tracker")
-st.markdown("Analyze live news headlines with **FinBERT** and cross-reference sentiment against historical price movements.")
+st.markdown("Analyze live news headlines using **FinBERT** and benchmark sentiment metrics against stock price trends.")
 
-# Sidebar Controls
+# Sidebar Configuration
 st.sidebar.header("Search Configurations")
 ticker = st.sidebar.text_input("Enter Ticker or Company (e.g., AAPL, TSLA, MSFT)", value="AAPL")
 num_headlines = st.sidebar.slider("Number of Headlines", min_value=5, max_value=20, value=10)
 
 if st.sidebar.button("Run Analysis", type="primary") or ticker:
-    st.subheader(f"Results for: {ticker.upper()}")
+    selected_ticker = ticker.strip().upper()
+    st.subheader(f"Results for: {selected_ticker}")
     
-    # 1. Fetch and Analyze News
-    with st.spinner("Fetching news and calculating FinBERT sentiment..."):
-        news_df = fetch_rss_news(ticker, max_results=num_headlines)
+    # 1. Fetch News Headlines and Run FinBERT Sentiment
+    with st.spinner("Fetching news and executing FinBERT inference..."):
+        news_df = fetch_rss_news(selected_ticker, max_results=num_headlines)
         
         if not news_df.empty:
             analyzed_df = analyze_sentiment(news_df)
@@ -37,10 +39,11 @@ if st.sidebar.button("Run Analysis", type="primary") or ticker:
             
             with col1:
                 st.write("### Latest Headlines & Sentiment")
+                # Using width="stretch" to eliminate Streamlit deprecation warning
                 st.dataframe(analyzed_df[["title", "sentiment", "confidence"]], width="stretch")
             
             with col2:
-                st.write("### Sentiment Distribution")
+                st.write("### Sentiment Breakdown")
                 sentiment_counts = analyzed_df["sentiment"].value_counts().reset_index()
                 sentiment_counts.columns = ["Sentiment", "Count"]
                 
@@ -49,23 +52,30 @@ if st.sidebar.button("Run Analysis", type="primary") or ticker:
                     names="Sentiment",
                     values="Count",
                     color="Sentiment",
-                    color_discrete_map={"positive": "#00CC96", "negative": "#EF553B", "neutral": "#AB63FA"}
+                    color_discrete_map={
+                        "positive": "#00CC96",
+                        "negative": "#EF553B",
+                        "neutral": "#AB63FA"
+                    }
                 )
-                st.plotly_chart(fig, width="stretch")
+                try:
+                    st.plotly_chart(fig, width="stretch")
+                except TypeError:
+                    st.plotly_chart(fig, use_container_width=True)
         else:
-            st.warning(f"No recent news headlines found for {ticker}.")
+            st.warning(f"No recent news headlines found for '{selected_ticker}'.")
 
-    # 2. Fetch and Display Stock Price History
+    # 2. Fetch and Display Market Price Data
     st.markdown("---")
-    st.subheader(f"📊 30-Day Stock Price Movement ({ticker.upper()})")
+    st.subheader(f"📊 30-Day Stock Price Movement ({selected_ticker})")
     
     with st.spinner("Fetching market price data..."):
-        price_df = fetch_stock_price_data(ticker)
+        price_df = fetch_stock_price_data(selected_ticker)
         
-        if not price_df.empty and "Close" in price_df.columns:
-            st.line_chart(price_df["Close"], width="stretch")
+        if price_df is not None and not price_df.empty and "Close" in price_df.columns:
+            st.line_chart(price_df["Close"])
         else:
             st.warning(
-                f"⚠️ Live market price chart for '{ticker}' is temporarily unavailable due to Yahoo Finance rate limiting. "
-                "The FinBERT news sentiment analysis above remains fully functional."
+                f"⚠️ Live market price data for **{selected_ticker}** is temporarily throttled by Yahoo Finance on public cloud infrastructure. "
+                "The FinBERT headline sentiment analysis above remains 100% active and functional."
             )

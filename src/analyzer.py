@@ -67,4 +67,19 @@ def fetch_stock_price_data(ticker_symbol: str) -> pd.DataFrame:
         return df
     except Exception as e:
         print(f"yfinance fetch error for {ticker_symbol}: {e}")
+        return pd.DataFrame()   
+
+def fetch_stock_price_data(ticker_symbol: str) -> pd.DataFrame:
+    """
+    Fetches historical stock prices using yfinance with safety handling for cloud IP blocks.
+    """
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        df = ticker.history(period="1mo")
+        
+        if df is None or df.empty:
+            return pd.DataFrame()
+            
+        return df
+    except Exception as e:
         return pd.DataFrame()
