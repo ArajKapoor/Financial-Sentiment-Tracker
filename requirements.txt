@@ -5,6 +5,7 @@ pandas
 plotly
 transformers
 torch
+torchvision
 feedparser
 curl_cffi
 yfinance
