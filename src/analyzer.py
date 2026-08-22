@@ -1,63 +1,106 @@
-import os
-import requests
-import pandas as pd
-import torch
-import streamlit as st
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, logging
+"""Analyzer: provide a minimal, lazy-loading FinBERT sentiment function.
 
-# Suppress Hugging Face warnings
-os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
-logging.set_verbosity_error()
+Keep top-level imports lightweight to avoid triggering transformers' image
+processing submodules (which require `torchvision`) during app startup.
+"""
 
-@st.cache_resource
-def load_finbert():
-    """
-    Loads FinBERT model and tokenizer with caching to avoid reloading on every rerun.
-    """
-    tokenizer = AutoTokenizer.from_pretrained("ProsusAI/finbert")
-    model = AutoModelForSequenceClassification.from_pretrained("ProsusAI/finbert")
-    return tokenizer, model
+MODEL_NAME = "ProsusAI/finbert"
 
-def analyze_sentiment(df: pd.DataFrame) -> pd.DataFrame:
+# Cached tokenizer/model (loaded on first use)
+_tokenizer = None
+_model = None
+_labels = ["Positive", "Negative", "Neutral"]
+
+
+def _load_model():
+    """Load tokenizer and model; raise a clear error if dependencies missing."""
+    global _tokenizer, _model
+    if _tokenizer is not None and _model is not None:
+        return
+
+    try:
+        from transformers import AutoTokenizer, AutoModelForSequenceClassification
+        import torch
+    except Exception as e:
+        raise RuntimeError(
+            "Missing ML dependencies: install 'transformers' and 'torch' (and optionally 'torchvision')"
+        ) from e
+
+    _tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    _model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
+
+
+def analyze_headline_sentiment(headline: str):
+    """Return (label, confidence) for a single headline string.
+
+    The model/tokenizer are loaded on first call and cached afterward.
     """
-    Runs FinBERT inference on news headline titles.
+    _load_model()
+
+    import torch
+    import torch.nn.functional as F
+
+    inputs = _tokenizer(headline, return_tensors="pt", truncation=True, max_length=512)
+    with torch.no_grad():
+        outputs = _model(**inputs)
+        probs = F.softmax(outputs.logits, dim=-1)[0]
+
+    max_idx = torch.argmax(probs).item()
+    return _labels[max_idx], round(probs[max_idx].item(), 4)
+
+
+def analyze_sentiment(df: "pd.DataFrame") -> "pd.DataFrame":
+    """Run sentiment analysis on a DataFrame with a `title` column.
+
+    Returns a new DataFrame with added `sentiment` and `confidence` columns
+    (lowercase labels to match the app UI expectations).
     """
-    if df.empty or "title" not in df.columns:
+    import pandas as pd
+
+    if df is None or df.empty or "title" not in df.columns:
         return df
 
-    tokenizer, model = load_finbert()
-    titles = df["title"].tolist()
+    sentiments = []
+    confidences = []
+    for title in df["title"].astype(str).tolist():
+        label, conf = analyze_headline_sentiment(title)
+        sentiments.append(label.lower())
+        confidences.append(conf)
 
-    inputs = tokenizer(titles, padding=True, truncation=True, return_tensors="pt")
-    
-    with torch.no_grad():
-        outputs = model(**inputs)
-        probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+    out = df.reset_index(drop=True).copy()
+    out["sentiment"] = sentiments
+    out["confidence"] = confidences
+    return out
 
-    labels = ["positive", "negative", "neutral"]
-    
-    results = []
-    for p in probs:
-        max_idx = torch.argmax(p).item()
-        results.append({
-            "sentiment": labels[max_idx],
-            "confidence": round(p[max_idx].item(), 4)
-        })
 
-    sentiment_df = pd.DataFrame(results)
-    return pd.concat([df.reset_index(drop=True), sentiment_df], axis=1)
+def fetch_stock_price_data(ticker_symbol: str) -> "pd.DataFrame":
+    """Attempt to fetch 30 days of price history for `ticker_symbol`.
 
-def fetch_stock_price_data(ticker_symbol: str) -> pd.DataFrame:
+    Tries `yfinance` first; on failure falls back to Stooq CSV download.
+    Returns a DataFrame indexed by Date with a `Close` column, or an empty
+    DataFrame on failure.
     """
-    Fetches historical stock prices using Stooq API to avoid Yahoo Finance cloud IP blocks.
-    """
+    import pandas as pd
+
+    # Try yfinance (preferred)
+    try:
+        import yfinance as yf
+
+        t = yf.Ticker(ticker_symbol)
+        hist = t.history(period="1mo")
+        if hist is not None and not hist.empty and "Close" in hist.columns:
+            return hist
+    except Exception:
+        # fallthrough to stooq
+        pass
+
+    # Fallback: Stooq (daily CSV)
     try:
         url = f"https://stooq.com/q/d/l/?s={ticker_symbol.lower()}.us&i=d"
         df = pd.read_csv(url)
-        
-        if df.empty or "Close" not in df.columns:
+        if df is None or df.empty or "Close" not in df.columns:
             return pd.DataFrame()
-            
+
         df["Date"] = pd.to_datetime(df["Date"])
         df = df.sort_values("Date").tail(30)
         df.set_index("Date", inplace=True)

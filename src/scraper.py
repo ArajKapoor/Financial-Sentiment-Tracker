@@ -20,3 +20,12 @@ def fetch_rss_news(query: str, max_results: int = 10) -> pd.DataFrame:
         })
         
     return pd.DataFrame(articles)
+
+
+def fetch_financial_news(ticker: str = "AAPL", max_results: int = 15) -> pd.DataFrame:
+    """Compatibility wrapper used by `src.pipeline`.
+
+    Keeps the simple behavior of fetching RSS headlines for the given
+    ticker or topic.
+    """
+    return fetch_rss_news(ticker, max_results=max_results)

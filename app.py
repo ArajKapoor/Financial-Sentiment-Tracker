@@ -1,10 +1,11 @@
 import os
+# Prevent transformers from importing optional image-processing modules
+# which require `torchvision` and can crash Streamlit Cloud at import time.
+os.environ["TRANSFORMERS_NO_IMAGE_PROCESSING"] = "1"
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-
-# Suppress Hugging Face warnings at application startup
-os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 
 from src.scraper import fetch_rss_news
 from src.analyzer import analyze_sentiment, fetch_stock_price_data

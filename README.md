@@ -2,7 +2,7 @@
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://financial-sentiment-tracker.streamlit.app)
 
-> **Live Web Application:** [financial-sentiment-tracker.streamlit.app](https://financial-sentiment-tracker.streamlit.app)
+> **Live Web Application:** [financial-sentiment-tracker.streamlit.app](https://arajkapoorfinancialsentimenttracker.streamlit.app)
 
 An end-to-end Natural Language Processing (NLP) and Quantitative Analytics web application built with **FinBERT**, **PyTorch**, and **Streamlit**. The system evaluates real-time market sentiment from stock news feeds and benchmarks NLP metrics against historical stock price performance (`yfinance`) to detect market mispricings and quant anomalies.
 
