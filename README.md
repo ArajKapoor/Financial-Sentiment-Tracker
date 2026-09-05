@@ -1,67 +1,65 @@
-# 📈 Real-Time Financial Sentiment & Market Tracker
+# Financial Sentiment and Market Tracker
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://financial-sentiment-tracker.streamlit.app)
+A Streamlit application that combines financial news sentiment analysis with recent stock price data.
 
-> **Live Web Application:** [financial-sentiment-tracker.streamlit.app](https://arajkapoorfinancialsentimenttracker.streamlit.app)
+## What It Does
 
-An end-to-end Natural Language Processing (NLP) and Quantitative Analytics web application built with **FinBERT**, **PyTorch**, and **Streamlit**. The system evaluates real-time market sentiment from stock news feeds and benchmarks NLP metrics against historical stock price performance (`yfinance`) to detect market mispricings and quant anomalies.
+- Fetches headlines from Google News RSS for a ticker or company name.
+- Classifies each headline with the `ProsusAI/finbert` model.
+- Labels headlines as positive, negative, or neutral and displays confidence scores.
+- Fetches the latest 30 daily closing prices from the Stooq CSV API.
+- Displays the headlines, sentiment breakdown, and price chart in a Streamlit dashboard.
 
----
+## Technology
 
-## Key Features
+- Python 3.10+
+- Streamlit
+- PyTorch
+- Hugging Face Transformers and FinBERT
+- Pandas
+- Plotly
+- Feedparser
+- Stooq CSV API for historical prices
 
-* **FinBERT NLP Engine:** Uses a specialized Financial BERT transformer (`ProsusAI/finbert`) to classify financial news headlines into `Positive`, `Negative`, or `Neutral` stances with token-level confidence scores.
-* **Quant Anomaly & Divergence Signal:** Automatically calculates 5-day stock returns and cross-references them against FinBERT sentiment scores to detect:
-  * **Bullish Divergence:** High positive sentiment alongside dropping price action (market underreaction).
-  * **Bearish Divergence:** Negative sentiment alongside rising price action (unsupported rally).
-* **Live Price Trend Overlays:** Integrates historical 30-day stock market price charts powered by `yfinance`.
-* **Composite Market Stance Index:** Aggregates headline confidence into a single quantitative Bullish/Bearish index score.
-* **Trending Key-Phrase Extraction:** Automatically filters and extracts key financial terms driving news flow.
-* **Exportable Data Reports:** Download processed headlines, confidence scores, and timestamps in CSV format for downstream financial analysis.
+The application does not currently use `yfinance`. Although it remains listed in `requirements.txt`, price data is fetched from Stooq in `src/analyzer.py`.
 
----
+## Project Structure
 
-## Tech Stack
-
-* **Language:** Python 3.10+
-* **Machine Learning & NLP:** PyTorch, Hugging Face Transformers (`FinBERT`)
-* **Frontend / Dashboard:** Streamlit, Plotly Express
-* **Financial Data & Scraping:** `yfinance`, `feedparser`, Pandas
-
----
-
-## Repository Structure
-
-Financial-Sentiment-Tracker/
-│
-├── app.py                  # Main Streamlit web application & UI logic
-├── requirements.txt        # Python package dependencies
-├── .gitignore              # Ignored files (virtual environment, cache)
+```text
+financial sentiment app/
+├── app.py                  # Streamlit dashboard
+├── requirements.txt        # Python dependencies
 ├── README.md               # Project documentation
-│
-└── src/                    # Core processing scripts
-    ├── __init__.py
-    ├── scraper.py          # RSS headline fetching module
-    ├── analyzer.py         # PyTorch / FinBERT sentiment model pipeline
-    └── pipeline.py         # End-to-end execution script
-
----
-
-**Deployment Notes**
-
-- If you deploy to Streamlit Cloud (or other hosted runners), set the environment variable `TRANSFORMERS_NO_IMAGE_PROCESSING=1` in the app settings. This prevents `transformers` from importing optional image-processing submodules that require `torchvision` at import time and can cause startup failures.
-- Ensure `requirements.txt` contains `torch`, `torchvision`, and `transformers` so the deployed environment installs compatible PyTorch wheels. After pushing these changes, restart/redeploy the app in Streamlit Cloud so the platform installs the new packages.
-
-Example Streamlit Cloud steps:
-
-1. Push changes to your repository:
-
-```powershell
-git add requirements.txt README.md
-git commit -m "Deploy: add torchvision and deployment note"
-git push origin main
+└── src/
+    ├── analyzer.py         # FinBERT inference and Stooq price retrieval
+    ├── pipeline.py         # Pipeline helper
+    └── scraper.py          # Google News RSS retrieval
 ```
 
-2. In Streamlit Cloud → Your app → Settings → Environment variables: add `TRANSFORMERS_NO_IMAGE_PROCESSING = 1` and restart the app.
+## Setup
 
-These steps will eliminate the `ModuleNotFoundError: No module named 'torchvision'` crash on startup.
+Create and activate a virtual environment, then install the dependencies:
+
+```powershell
+python -m venv env
+.\env\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+## Run the App
+
+```powershell
+streamlit run app.py
+```
+
+The first sentiment analysis run downloads the FinBERT tokenizer and model from Hugging Face.
+
+## Deployment
+
+For Streamlit Cloud, set this environment variable if the deployment encounters optional image-processing imports:
+
+```text
+TRANSFORMERS_NO_IMAGE_PROCESSING=1
+```
+
+The application requires network access to Google News RSS, Hugging Face, and Stooq.
